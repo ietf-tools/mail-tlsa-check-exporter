@@ -7,7 +7,7 @@ import http from 'node:http'
 const SMTP_HOSTNAME = process.env.MTCE_SMTP_HOSTNAME
 const SMTP_PORT = parseInt(process.env.MTCE_SMTP_PORT ?? 587)
 const IMAP_HOSTNAME = process.env.MTCE_IMAP_HOSTNAME
-const IMAP_PORT = parseInt(process.env.MTCE_IMAP_PORT ?? 993)
+const IMAP_PORT = parseInt(process.env.MTCE_IMAP_PORT ?? 143)
 const TLSA_RECORD = process.env.MTCE_TLSA_RECORD ?? `_25._tcp.${SMTP_HOSTNAME}`
 const CHECK_TIMEOUT = parseInt(process.env.MTCE_CHECK_TIMEOUT ?? 15000)
 const IPV4_ENABLED = process.env.MTCE_IPV4_ENABLED?.toLowerCase() === 'true'
