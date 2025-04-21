@@ -391,7 +391,6 @@ const server = http.createServer(async (req, res) => {
         const imapV4Result = IPV4_ENABLED ? await validateIMAP(4, tlsaResult.digest) : {}
         const imapV6Result = IPV6_ENABLED ? await validateIMAP(6, tlsaResult.digest) : {}
 
-        
         results.push('# HELP mtce_imap_status IMAP server status (1 = up, 0 = failed)')
         results.push('# TYPE mtce_imap_status gauge')
         if (IPV4_ENABLED) {
@@ -434,7 +433,7 @@ const server = http.createServer(async (req, res) => {
     res.end('Mail TLSA Check Exporter\n------------------------\nMetrics are available at path /metrics')
   }
 })
-const serverPort = parseInt(process.env.MTCE_SERVER_PORT || 9309)
+const serverPort = parseInt(process.env.MTCE_SERVER_PORT || 19309)
 server.listen(serverPort, () => {
   console.log(`MAIL-TLSA-CHECK-EXPORTER started on port ${serverPort}`)
 })
