@@ -12,6 +12,7 @@ const TLSA_RECORD = process.env.MTCE_TLSA_RECORD ?? `_25._tcp.${SMTP_HOSTNAME}`
 const CHECK_TIMEOUT = parseInt(process.env.MTCE_CHECK_TIMEOUT ?? 15000)
 const IPV4_ENABLED = process.env.MTCE_IPV4_ENABLED?.toLowerCase() === 'true'
 const IPV6_ENABLED = process.env.MTCE_IPV6_ENABLED?.toLowerCase() === 'true'
+const SMTP_CLIENT = process.env.MTCE_SMTP_CLIENT || 'tlsa-smtp-synthetics-probe'
 
 // Init Check
 
@@ -96,10 +97,10 @@ async function validateSMTP (ipFamily = 4, expectedHash) {
 
       client.on('data', resp => {
         const respStr = resp.toString()
-        if (step === null && respStr.indexOf(`220 ${SMTP_HOSTNAME} ESMTP`) === 0) {
+        if (step === null && respStr.indexOf(`220 ${SMTP_HOSTNAME}`) === 0 && respStr.indexOf('ESMTP') > SMTP_HOSTNAME.length + 4) {
           console.info('-> Sending EHLO...')
           step = 'EHLO'
-          client.write('EHLO ietf-synthetics-probe\n')
+          client.write(`EHLO ${SMTP_CLIENT}\n`)
         } else if (step === 'EHLO' && respStr.indexOf('250-STARTTLS') >= 0) {
           console.info('-> Sending STARTTLS...')
           step = 'STARTTLS'
@@ -347,11 +348,11 @@ const server = http.createServer(async (req, res) => {
       const tlsaResult = await fetchTLSA()
       results.push('# HELP mtce_tlsa_status TLSA record fetch status (1 = up, 0 = failed)')
       results.push('# TYPE mtce_tlsa_status gauge')
-      results.push(`mtce_tlsa_status{tlsa_digest="${tlsaResult.digest}"} ${tlsaResult.up}`)
+      results.push(`mtce_tlsa_status{tlsa_digest="${tlsaResult.digest}",record="${TLSA_RECORD}"} ${tlsaResult.up}`)
   
       results.push('# HELP mtce_tlsa_fetch_seconds TLSA record fetch duration in seconds')
       results.push('# TYPE mtce_tlsa_fetch_seconds gauge')
-      results.push(`mtce_tlsa_fetch_seconds{tlsa_digest="${tlsaResult.digest}"} ${tlsaResult.seconds}`)
+      results.push(`mtce_tlsa_fetch_seconds{tlsa_digest="${tlsaResult.digest}",record="${TLSA_RECORD}"} ${tlsaResult.seconds}`)
 
       // -> SMTP Check
       if (SMTP_HOSTNAME) {
@@ -361,28 +362,28 @@ const server = http.createServer(async (req, res) => {
         results.push('# HELP mtce_smtp_status SMTP server status (1 = up, 0 = failed)')
         results.push('# TYPE mtce_smtp_status gauge')
         if (IPV4_ENABLED) {
-          results.push(`mtce_smtp_status{ip="v4",tlsa_digest="${tlsaResult.digest}"} ${smtpV4Result.up}`)
+          results.push(`mtce_smtp_status{ip="v4",hostname="${SMTP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}"} ${smtpV4Result.up}`)
         }
         if (IPV6_ENABLED) {
-          results.push(`mtce_smtp_status{ip="v6",tlsa_digest="${tlsaResult.digest}"} ${smtpV6Result.up}`)
+          results.push(`mtce_smtp_status{ip="v6",hostname="${SMTP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}"} ${smtpV6Result.up}`)
         }
   
         results.push('# HELP mtce_smtp_cert_status SMTP certificate status (1 = valid, 0 = invalid)')
         results.push('# TYPE mtce_smtp_cert_status gauge')
         if (IPV4_ENABLED) {
-          results.push(`mtce_smtp_cert_status{ip="v4",tlsa_digest="${tlsaResult.digest}",cert_digest="${smtpV4Result.digest}"} ${smtpV4Result.valid}`)
+          results.push(`mtce_smtp_cert_status{ip="v4",hostname="${SMTP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}",cert_digest="${smtpV4Result.digest}"} ${smtpV4Result.valid}`)
         }
         if (IPV6_ENABLED) {
-          results.push(`mtce_smtp_cert_status{ip="v6",tlsa_digest="${tlsaResult.digest}",cert_digest="${smtpV6Result.digest}"} ${smtpV6Result.valid}`)
+          results.push(`mtce_smtp_cert_status{ip="v6",hostname="${SMTP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}",cert_digest="${smtpV6Result.digest}"} ${smtpV6Result.valid}`)
         }
 
         results.push('# HELP mtce_smtp_seconds SMTP check duration in seconds')
         results.push('# TYPE mtce_smtp_seconds gauge')
         if (IPV4_ENABLED) {
-          results.push(`mtce_smtp_seconds{ip="v4",tlsa_digest="${tlsaResult.digest}"} ${smtpV4Result.seconds}`)
+          results.push(`mtce_smtp_seconds{ip="v4",hostname="${SMTP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}"} ${smtpV4Result.seconds}`)
         }
         if (IPV6_ENABLED) {
-          results.push(`mtce_smtp_seconds{ip="v6",tlsa_digest="${tlsaResult.digest}"} ${smtpV6Result.seconds}`)
+          results.push(`mtce_smtp_seconds{ip="v6",hostname="${SMTP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}"} ${smtpV6Result.seconds}`)
         }
       }
 
@@ -394,28 +395,28 @@ const server = http.createServer(async (req, res) => {
         results.push('# HELP mtce_imap_status IMAP server status (1 = up, 0 = failed)')
         results.push('# TYPE mtce_imap_status gauge')
         if (IPV4_ENABLED) {
-          results.push(`mtce_imap_status{ip="v4",tlsa_digest="${tlsaResult.digest}"} ${imapV4Result.up}`)
+          results.push(`mtce_imap_status{ip="v4",hostname="${IMAP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}"} ${imapV4Result.up}`)
         }
         if (IPV6_ENABLED) {
-          results.push(`mtce_imap_status{ip="v6",tlsa_digest="${tlsaResult.digest}"} ${imapV6Result.up}`)
+          results.push(`mtce_imap_status{ip="v6",hostname="${IMAP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}"} ${imapV6Result.up}`)
         }
 
         results.push('# HELP mtce_imap_cert_status IMAP certificate status (1 = valid, 0 = invalid)')
         results.push('# TYPE mtce_imap_cert_status gauge')
         if (IPV4_ENABLED) {
-          results.push(`mtce_imap_cert_status{ip="v4",tlsa_digest="${tlsaResult.digest}",cert_digest="${imapV4Result.digest}"} ${imapV4Result.valid}`)
+          results.push(`mtce_imap_cert_status{ip="v4",hostname="${IMAP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}",cert_digest="${imapV4Result.digest}"} ${imapV4Result.valid}`)
         }
         if (IPV6_ENABLED) {
-          results.push(`mtce_imap_cert_status{ip="v6",tlsa_digest="${tlsaResult.digest}",cert_digest="${imapV6Result.digest}"} ${imapV6Result.valid}`)
+          results.push(`mtce_imap_cert_status{ip="v6",hostname="${IMAP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}",cert_digest="${imapV6Result.digest}"} ${imapV6Result.valid}`)
         }
 
         results.push('# HELP mtce_imap_seconds IMAP check duration in seconds')
         results.push('# TYPE mtce_imap_seconds gauge')
         if (IPV4_ENABLED) {
-          results.push(`mtce_imap_seconds{ip="v4",tlsa_digest="${tlsaResult.digest}"} ${imapV4Result.seconds}`)
+          results.push(`mtce_imap_seconds{ip="v4",hostname="${IMAP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}"} ${imapV4Result.seconds}`)
         }
         if (IPV6_ENABLED) {
-          results.push(`mtce_imap_seconds{ip="v6",tlsa_digest="${tlsaResult.digest}"} ${imapV6Result.seconds}`)
+          results.push(`mtce_imap_seconds{ip="v6",hostname="${IMAP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}"} ${imapV6Result.seconds}`)
         }
       }
   
