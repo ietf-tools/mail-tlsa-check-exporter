@@ -327,7 +327,7 @@ function pemEncode (str, docType = 'CERTIFICATE') {
   const ret = []
   for (let i = 1; i <= str.length; i++) {
     ret.push(str[i - 1])
-    if (i % 64 === 0 && i < str.length) {
+    if (i % 64 === 0 && i < str.length) {
       ret.push('\n')
     }
   }
