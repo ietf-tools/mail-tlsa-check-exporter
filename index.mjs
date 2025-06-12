@@ -48,19 +48,19 @@ async function fetchTLSA () {
       performance.mark('tlsa_end')
       clearTimeout(fetchTimer)
 
-      const tlsaData = Buffer.from(tlsaRecord[0].data).toString('hex')
-      console.info(`TLSA record hash digest: ${tlsaData}`)
+      const tlsaData = tlsaRecord.map(r => Buffer.from(r.data).toString('hex'))
+      console.info(`TLSA record hash digest(s): ${tlsaData.join(', ')}`)
 
       resolve({
         up: 1,
-        digest: tlsaData,
+        digests: tlsaData,
         seconds: performance.measure('tlsa', 'tlsa_start', 'tlsa_end').duration / 1000
       })
     } catch (err) {
       performance.mark('tlsa_end')
       reject({
         up: 0,
-        digest: '',
+        digests: [],
         seconds: performance.measure('tlsa', 'tlsa_start', 'tlsa_end').duration / 1000
       })
     }
@@ -71,10 +71,10 @@ async function fetchTLSA () {
  * Validate SMTP Certificate
  * 
  * @param {Number} ipFamily Whether to connect via IPv4 or IPv6
- * @param {String} expectedHash The hash digest to expect
+ * @param {String} expectedHashes The hash digests to expect
  * @returns {Promise} Promise that resolves on success
  */
-async function validateSMTP (ipFamily = 4, expectedHash) {
+async function validateSMTP (ipFamily = 4, expectedHashes) {
   console.info(`SMTP Validation Check - ${SMTP_HOSTNAME}:${SMTP_PORT} via IPv${ipFamily}`)
   return new Promise((resolve, reject) => {
     try {
@@ -89,6 +89,7 @@ async function validateSMTP (ipFamily = 4, expectedHash) {
           resolve({
             up: 0,
             valid: 0,
+            expectedDigest: expectedHashes[0],
             digest: '',
             seconds: CHECK_TIMEOUT / 1000
           })
@@ -124,6 +125,7 @@ async function validateSMTP (ipFamily = 4, expectedHash) {
               return resolve({
                 up: 1,
                 valid: 0,
+                expectedDigest: expectedHashes[0],
                 digest: '',
                 seconds: performance.measure('smtp', 'smtp_start', 'smtp_end').duration / 1000
               })
@@ -133,6 +135,7 @@ async function validateSMTP (ipFamily = 4, expectedHash) {
               return resolve({
                 up: 1,
                 valid: 0,
+                expectedDigest: expectedHashes[0],
                 digest: '',
                 seconds: performance.measure('smtp', 'smtp_start', 'smtp_end').duration / 1000
               })
@@ -142,15 +145,18 @@ async function validateSMTP (ipFamily = 4, expectedHash) {
             const certPemEncoded = pemEncode(cert.raw.toString('base64'))
             const certPubKeyDer = crypto.createPublicKey(certPemEncoded).export({ type: 'spki', format: 'der' })
             const pubkeyHash = crypto.createHash('sha256').update(certPubKeyDer).digest('hex')
+            let matchingDigest = null
 
-            if (expectedHash === pubkeyHash) {
+            if (expectedHashes.includes(pubkeyHash)) {
+              matchingDigest = expectedHashes.find(h => h === pubkeyHash)
               console.info('SMTP TLS Certificate digest matches TLSA record. [ VALID ]')
             } else {
-              console.info(`SMTP TLS Certificate digest does not match expected TLSA record! Expected "${expectedHash}" but received "${pubkeyHash}" [ ERROR ]`)
+              console.info(`SMTP TLS Certificate digest does not match expected TLSA record! Expected "${expectedHashes.join(' or ')}" but received "${pubkeyHash}" [ ERROR ]`)
             }
             resolve({
               up: 1,
-              valid: expectedHash === pubkeyHash ? 1 : 0,
+              valid: matchingDigest ? 1 : 0,
+              expectedDigest: matchingDigest || expectedHashes[0],
               digest: pubkeyHash,
               seconds: performance.measure('smtp', 'smtp_start', 'smtp_end').duration / 1000
             })
@@ -168,6 +174,7 @@ async function validateSMTP (ipFamily = 4, expectedHash) {
         resolve({
           up: 0,
           valid: 0,
+          expectedDigest: expectedHashes[0],
           digest: '',
           seconds: performance.measure('smtp', 'smtp_start', 'smtp_end').duration / 1000
         })
@@ -187,6 +194,7 @@ async function validateSMTP (ipFamily = 4, expectedHash) {
       resolve({
         up: 0,
         valid: 0,
+        expectedDigest: expectedHashes[0],
         digest: '',
         seconds: performance.measure('smtp', 'smtp_start', 'smtp_end').duration / 1000
       })
@@ -198,10 +206,10 @@ async function validateSMTP (ipFamily = 4, expectedHash) {
  * Validate IMAP Certificate
  * 
  * @param {Number} ipFamily Whether to connect via IPv4 or IPv6
- * @param {String} expectedHash The hash digest to expect
+ * @param {String} expectedHashes The hash digests to expect
  * @returns {Promise} Promise that resolves on success
  */
-async function validateIMAP (ipFamily = 4, expectedHash) {
+async function validateIMAP (ipFamily = 4, expectedHashes) {
   console.info(`IMAP Validation Check - ${IMAP_HOSTNAME}:${IMAP_PORT} via IPv${ipFamily}`)
   return new Promise((resolve, reject) => {
     try {
@@ -216,6 +224,7 @@ async function validateIMAP (ipFamily = 4, expectedHash) {
           resolve({
             up: 0,
             valid: 0,
+            expectedDigest: expectedHashes[0],
             digest: '',
             seconds: CHECK_TIMEOUT / 1000
           })
@@ -247,6 +256,7 @@ async function validateIMAP (ipFamily = 4, expectedHash) {
               return resolve({
                 up: 1,
                 valid: 0,
+                expectedDigest: expectedHashes[0],
                 digest: '',
                 seconds: performance.measure('imap', 'imap_start', 'imap_end').duration / 1000
               })
@@ -256,6 +266,7 @@ async function validateIMAP (ipFamily = 4, expectedHash) {
               return resolve({
                 up: 1,
                 valid: 0,
+                expectedDigest: expectedHashes[0],
                 digest: '',
                 seconds: performance.measure('imap', 'imap_start', 'imap_end').duration / 1000
               })
@@ -265,15 +276,18 @@ async function validateIMAP (ipFamily = 4, expectedHash) {
             const certPemEncoded = pemEncode(cert.raw.toString('base64'))
             const certPubKeyDer = crypto.createPublicKey(certPemEncoded).export({ type: 'spki', format: 'der' })
             const pubkeyHash = crypto.createHash('sha256').update(certPubKeyDer).digest('hex')
+            let matchingDigest = null
 
-            if (expectedHash === pubkeyHash) {
+            if (expectedHashes.includes(pubkeyHash)) {
+              matchingDigest = expectedHashes.find(h => h === pubkeyHash)
               console.info('IMAP TLS Certificate digest matches TLSA record. [ VALID ]')
             } else {
-              console.info(`IMAP TLS Certificate digest does not match expected TLSA record! Expected "${expectedHash}" but received "${pubkeyHash}" [ ERROR ]`)
+              console.info(`IMAP TLS Certificate digest does not match expected TLSA record! Expected "${expectedHashes.join(' or ')}" but received "${pubkeyHash}" [ ERROR ]`)
             }
             resolve({
               up: 1,
-              valid: expectedHash === pubkeyHash ? 1 : 0,
+              valid: matchingDigest ? 1 : 0,
+              expectedDigest: matchingDigest || expectedHashes[0],
               digest: pubkeyHash,
               seconds: performance.measure('imap', 'imap_start', 'imap_end').duration / 1000
             })
@@ -291,6 +305,7 @@ async function validateIMAP (ipFamily = 4, expectedHash) {
         resolve({
           up: 0,
           valid: 0,
+          expectedDigest: expectedHashes[0],
           digest: '',
           seconds: performance.measure('imap', 'imap_start', 'imap_end').duration / 1000
         })
@@ -310,6 +325,7 @@ async function validateIMAP (ipFamily = 4, expectedHash) {
       resolve({
         up: 0,
         valid: 0,
+        expectedDigest: expectedHashes[0],
         digest: '',
         seconds: performance.measure('imap', 'imap_start', 'imap_end').duration / 1000
       })
@@ -348,75 +364,79 @@ const server = http.createServer(async (req, res) => {
       const tlsaResult = await fetchTLSA()
       results.push('# HELP mtce_tlsa_status TLSA record fetch status (1 = up, 0 = failed)')
       results.push('# TYPE mtce_tlsa_status gauge')
-      results.push(`mtce_tlsa_status{tlsa_digest="${tlsaResult.digest}",record="${TLSA_RECORD}"} ${tlsaResult.up}`)
+      for (const digest of tlsaResult.digests) {
+        results.push(`mtce_tlsa_status{tlsa_digest="${digest}",record="${TLSA_RECORD}"} ${tlsaResult.up}`)
+      }
   
       results.push('# HELP mtce_tlsa_fetch_seconds TLSA record fetch duration in seconds')
       results.push('# TYPE mtce_tlsa_fetch_seconds gauge')
-      results.push(`mtce_tlsa_fetch_seconds{tlsa_digest="${tlsaResult.digest}",record="${TLSA_RECORD}"} ${tlsaResult.seconds}`)
+      for (const digest of tlsaResult.digests) {
+        results.push(`mtce_tlsa_fetch_seconds{tlsa_digest="${digest}",record="${TLSA_RECORD}"} ${tlsaResult.seconds}`)
+      }
 
       // -> SMTP Check
       if (SMTP_HOSTNAME) {
-        const smtpV4Result = IPV4_ENABLED ? await validateSMTP(4, tlsaResult.digest) : {}
-        const smtpV6Result = IPV6_ENABLED ? await validateSMTP(6, tlsaResult.digest) : {}
+        const smtpV4Result = IPV4_ENABLED ? await validateSMTP(4, tlsaResult.digests) : {}
+        const smtpV6Result = IPV6_ENABLED ? await validateSMTP(6, tlsaResult.digests) : {}
         
         results.push('# HELP mtce_smtp_status SMTP server status (1 = up, 0 = failed)')
         results.push('# TYPE mtce_smtp_status gauge')
         if (IPV4_ENABLED) {
-          results.push(`mtce_smtp_status{ip="v4",hostname="${SMTP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}"} ${smtpV4Result.up}`)
+          results.push(`mtce_smtp_status{ip="v4",hostname="${SMTP_HOSTNAME}",tlsa_digest="${smtpV4Result.expectedDigest}"} ${smtpV4Result.up}`)
         }
         if (IPV6_ENABLED) {
-          results.push(`mtce_smtp_status{ip="v6",hostname="${SMTP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}"} ${smtpV6Result.up}`)
+          results.push(`mtce_smtp_status{ip="v6",hostname="${SMTP_HOSTNAME}",tlsa_digest="${smtpV6Result.expectedDigest}"} ${smtpV6Result.up}`)
         }
   
         results.push('# HELP mtce_smtp_cert_status SMTP certificate status (1 = valid, 0 = invalid)')
         results.push('# TYPE mtce_smtp_cert_status gauge')
         if (IPV4_ENABLED) {
-          results.push(`mtce_smtp_cert_status{ip="v4",hostname="${SMTP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}",cert_digest="${smtpV4Result.digest}"} ${smtpV4Result.valid}`)
+          results.push(`mtce_smtp_cert_status{ip="v4",hostname="${SMTP_HOSTNAME}",tlsa_digest="${smtpV4Result.expectedDigest}",cert_digest="${smtpV4Result.digest}"} ${smtpV4Result.valid}`)
         }
         if (IPV6_ENABLED) {
-          results.push(`mtce_smtp_cert_status{ip="v6",hostname="${SMTP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}",cert_digest="${smtpV6Result.digest}"} ${smtpV6Result.valid}`)
+          results.push(`mtce_smtp_cert_status{ip="v6",hostname="${SMTP_HOSTNAME}",tlsa_digest="${smtpV6Result.expectedDigest}",cert_digest="${smtpV6Result.digest}"} ${smtpV6Result.valid}`)
         }
 
         results.push('# HELP mtce_smtp_seconds SMTP check duration in seconds')
         results.push('# TYPE mtce_smtp_seconds gauge')
         if (IPV4_ENABLED) {
-          results.push(`mtce_smtp_seconds{ip="v4",hostname="${SMTP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}"} ${smtpV4Result.seconds}`)
+          results.push(`mtce_smtp_seconds{ip="v4",hostname="${SMTP_HOSTNAME}",tlsa_digest="${smtpV4Result.expectedDigest}"} ${smtpV4Result.seconds}`)
         }
         if (IPV6_ENABLED) {
-          results.push(`mtce_smtp_seconds{ip="v6",hostname="${SMTP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}"} ${smtpV6Result.seconds}`)
+          results.push(`mtce_smtp_seconds{ip="v6",hostname="${SMTP_HOSTNAME}",tlsa_digest="${smtpV6Result.expectedDigest}"} ${smtpV6Result.seconds}`)
         }
       }
 
       // -> IMAP Check
       if (IMAP_HOSTNAME) {
-        const imapV4Result = IPV4_ENABLED ? await validateIMAP(4, tlsaResult.digest) : {}
-        const imapV6Result = IPV6_ENABLED ? await validateIMAP(6, tlsaResult.digest) : {}
+        const imapV4Result = IPV4_ENABLED ? await validateIMAP(4, tlsaResult.digests) : {}
+        const imapV6Result = IPV6_ENABLED ? await validateIMAP(6, tlsaResult.digests) : {}
 
         results.push('# HELP mtce_imap_status IMAP server status (1 = up, 0 = failed)')
         results.push('# TYPE mtce_imap_status gauge')
         if (IPV4_ENABLED) {
-          results.push(`mtce_imap_status{ip="v4",hostname="${IMAP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}"} ${imapV4Result.up}`)
+          results.push(`mtce_imap_status{ip="v4",hostname="${IMAP_HOSTNAME}",tlsa_digest="${imapV4Result.expectedDigest}"} ${imapV4Result.up}`)
         }
         if (IPV6_ENABLED) {
-          results.push(`mtce_imap_status{ip="v6",hostname="${IMAP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}"} ${imapV6Result.up}`)
+          results.push(`mtce_imap_status{ip="v6",hostname="${IMAP_HOSTNAME}",tlsa_digest="${imapV6Result.expectedDigest}"} ${imapV6Result.up}`)
         }
 
         results.push('# HELP mtce_imap_cert_status IMAP certificate status (1 = valid, 0 = invalid)')
         results.push('# TYPE mtce_imap_cert_status gauge')
         if (IPV4_ENABLED) {
-          results.push(`mtce_imap_cert_status{ip="v4",hostname="${IMAP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}",cert_digest="${imapV4Result.digest}"} ${imapV4Result.valid}`)
+          results.push(`mtce_imap_cert_status{ip="v4",hostname="${IMAP_HOSTNAME}",tlsa_digest="${imapV4Result.expectedDigest}",cert_digest="${imapV4Result.digest}"} ${imapV4Result.valid}`)
         }
         if (IPV6_ENABLED) {
-          results.push(`mtce_imap_cert_status{ip="v6",hostname="${IMAP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}",cert_digest="${imapV6Result.digest}"} ${imapV6Result.valid}`)
+          results.push(`mtce_imap_cert_status{ip="v6",hostname="${IMAP_HOSTNAME}",tlsa_digest="${imapV6Result.expectedDigest}",cert_digest="${imapV6Result.digest}"} ${imapV6Result.valid}`)
         }
 
         results.push('# HELP mtce_imap_seconds IMAP check duration in seconds')
         results.push('# TYPE mtce_imap_seconds gauge')
         if (IPV4_ENABLED) {
-          results.push(`mtce_imap_seconds{ip="v4",hostname="${IMAP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}"} ${imapV4Result.seconds}`)
+          results.push(`mtce_imap_seconds{ip="v4",hostname="${IMAP_HOSTNAME}",tlsa_digest="${imapV4Result.expectedDigest}"} ${imapV4Result.seconds}`)
         }
         if (IPV6_ENABLED) {
-          results.push(`mtce_imap_seconds{ip="v6",hostname="${IMAP_HOSTNAME}",tlsa_digest="${tlsaResult.digest}"} ${imapV6Result.seconds}`)
+          results.push(`mtce_imap_seconds{ip="v6",hostname="${IMAP_HOSTNAME}",tlsa_digest="${imapV6Result.expectedDigest}"} ${imapV6Result.seconds}`)
         }
       }
   
