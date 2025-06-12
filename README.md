@@ -1,6 +1,13 @@
-# mail-tlsa-check-exporter
+<div align="center">
+  
+<img src="https://raw.githubusercontent.com/ietf-tools/common/main/assets/logos/mail-tlsa-check-exporter.svg" alt="Mail TLSA Check Exporter" height="125" />
 
-Validate SMTP / IMAP server certificates against a TLSA record as a Prometheus-compatible exporter
+[![License](https://img.shields.io/github/license/ietf-tools/mail-tlsa-check-exporter)](https://github.com/ietf-tools/mail-tlsa-check-exporter/blob/main/LICENSE)
+[![Node Version](https://img.shields.io/badge/node.js->=23.9-green?logo=node.js&logoColor=white)](#prerequisites)
+
+##### Validate SMTP / IMAP server certificates against a TLSA record as a Prometheus-compatible exporter
+
+</div>
 
 ## Prerequisites
 
