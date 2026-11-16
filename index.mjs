@@ -115,7 +115,8 @@ async function validateSMTP (ipFamily = 4, expectedHashes) {
             console.info('-> TLS connected.')
             const cert = clientTls.getPeerCertificate(true)
             clearTimeout(clientTimer)
-            client.end()
+            clientTls.write('QUIT\n')
+            clientTls.end()
             performance.mark('smtp_end')
 
             // -> Validate expiration
